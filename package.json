@@ -1,0 +1,46 @@
+{
+  "name": "electron-bridge",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.example.printersden",
+    "productName": "Printers Den",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/banana.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/banana.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/banana.png"
+    }
+  },
+  "keywords": ["printers", "den", "print", "printer", "print jobs", "print job", "print jobs", "print job", "print jobs", "print job"],
+  "author": "Shahzaib A. & Daniyal A. <shahzaibmehfooz86@gmail.com>",
+  "license": "MIT",
+  "description": "Desktop service to route print job to specific printer",
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12"
+  }
+}
