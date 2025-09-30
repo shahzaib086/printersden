@@ -276,7 +276,7 @@ function createWebSocketServer() {
     // Send welcome message
     ws.send(JSON.stringify({
       type: "welcome",
-      message: "Printer Bridge Service connected",
+      message: "SADA Bridge - Service connected successfully",
       timestamp: new Date().toISOString()
     }));
   });
@@ -300,12 +300,12 @@ function createWindow() {
 
 // Tray (runs in background)
 function createTray() {
-    const iconPath = path.join(__dirname, "assets", "banana.ico");
+    const iconPath = path.join(__dirname, "assets", "printer.ico");
     tray = new Tray(iconPath);
     
     const contextMenu = Menu.buildFromTemplate([
         { 
-            label: "🖨️ Printer Bridge Service", 
+            label: "🖨️ SADA Bridge Service", 
             enabled: false 
         },
         { type: "separator" },
@@ -322,34 +322,6 @@ function createTray() {
             label: "Show Window", 
             click: () => mainWindow.show() 
         },
-        { 
-            label: "Test Print", 
-            click: async () => {
-                try {
-                    const printers = await getAvailablePrinters();
-                    if (printers.length > 0) {
-                        // Create a simple test PDF
-                        const testPdf = await createTestPDF();
-                        const result = await handlePrintJob({
-                            base64String: testPdf,
-                            printerName: printers[0],
-                            documentName: "Test Document"
-                        });
-                        
-                        if (result.success) {
-                            tray.setToolTip("Printer Bridge - Test print successful");
-                        } else {
-                            tray.setToolTip("Printer Bridge - Test print failed");
-                        }
-                    } else {
-                        tray.setToolTip("Printer Bridge - No printers found");
-                    }
-                } catch (error) {
-                    console.error("Test print error:", error);
-                    tray.setToolTip("Printer Bridge - Test print error");
-                }
-            }
-        },
         { type: "separator" },
         { 
             label: "Quit", 
@@ -357,7 +329,7 @@ function createTray() {
         },
     ]);
     
-    tray.setToolTip("Printer Bridge Service - Running on port 8912");
+    tray.setToolTip("SADA Bridge Service - Running on port 8912");
     tray.setContextMenu(contextMenu);
 }
 

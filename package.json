@@ -1,7 +1,7 @@
 {
-  "name": "printer-bridge-electron",
+  "name": "sada-bridge-electron",
   "version": "1.0.0",
-  "description": "Electron app with WebSocket server for printing base64 documents",
+  "description": "Bridge service between POS and printers with WebSocket server for printing base64 documents.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -11,7 +11,7 @@
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux"
   },
-  "keywords": ["printer", "base64", "electron", "websocket"],
+  "keywords": ["sadabridge", "sada", "bridge", "printer", "base64", "electron", "websocket"],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
@@ -22,8 +22,8 @@
     "electron-builder": "^24.6.4"
   },
   "build": {
-    "appId": "com.printerbridge.electron",
-    "productName": "Printer Bridge",
+    "appId": "com.sadabridge.electron",
+    "productName": "SADA Bridge",
     "directories": {
       "output": "dist"
     },
@@ -42,13 +42,16 @@
     ],
     "asar": false,
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/printer.png"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "assets/printer.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "assets/printer.png"
     }
   }
 }
