@@ -1,9 +1,209 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Electron WS App</title>
-  </head>
-  <body>
-    <h1>WebSocket Server Running</h1>
-  </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printer Bridge Service</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .status {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .info h3 {
+            margin-top: 0;
+            color: #ffd700;
+        }
+        .endpoint {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖨️ Printer Bridge Service</h1>
+        
+        <div class="status">
+            <h3>✅ Service Running</h3>
+            <p>WebSocket server is active and ready to receive print jobs</p>
+        </div>
+        
+        <div class="info">
+            <h3>📡 Connection Info</h3>
+            <div class="endpoint">WebSocket: ws://localhost:8912</div>
+            <div class="endpoint">Status: Connected</div>
+        </div>
+        
+        <div class="info">
+            <h3>🔌 Available Commands</h3>
+            <div class="endpoint">{"type": "print", "base64String": "...", "printerName": "..."}</div>
+            <div class="endpoint">{"type": "get_printers"}</div>
+            <div class="endpoint">{"type": "ping"}</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 Test Functions</h3>
+            <button onclick="testConnection()">Test Connection</button>
+            <button onclick="getPrinters()">Get Printers</button>
+            <button onclick="testPrint()">Test Print</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+        
+        <div class="log" id="log">
+            <div>Service started. Ready to receive print jobs...</div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket('ws://localhost:8912');
+                
+                ws.onopen = function() {
+                    log('Connected to WebSocket server');
+                };
+                
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log(`Received: ${JSON.stringify(data, null, 2)}`);
+                };
+                
+                ws.onclose = function() {
+                    log('WebSocket connection closed');
+                };
+                
+                ws.onerror = function(error) {
+                    log(`WebSocket error: ${error}`);
+                };
+            } catch (error) {
+                log(`Connection error: ${error.message}`);
+            }
+        }
+        
+        function testConnection() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'ping'}));
+                log('Sent ping message');
+            } else {
+                log('WebSocket not connected');
+            }
+        }
+        
+        function getPrinters() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'get_printers'}));
+                log('Requested printer list');
+            } else {
+                log('WebSocket not connected');
+            }
+        }
+        
+        function testPrint() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Create a simple test PDF as base64
+                const testPdf = createTestPDF();
+                ws.send(JSON.stringify({
+                    type: 'print',
+                    base64String: testPdf,
+                    printerName: 'Microsoft Print to PDF',
+                    documentName: 'Test Document'
+                }));
+                log('Sent test print job');
+            } else {
+                log('WebSocket not connected');
+            }
+        }
+        
+        function createTestPDF() {
+            // This is a minimal PDF in base64 format
+            return 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNTk1IDg0Ml0KPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA0IDAgUgo+Pgo+PgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoyNTAgNzAwIFRkCihUZXN0IERvY3VtZW50KSBUagoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYKMDAwMDAwMDAwOSAwMDAwMCBuCjAwMDAwMDAwNTggMDAwMDAgbgowMDAwMDAwMTE1IDAwMDAwIG4KMDAwMDAwMDI2OCAwMDAwMCBuCjAwMDAwMDAzNzcgMDAwMDAgbgp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQ3NQolJUVPRgo=';
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Connect when page loads
+        window.onload = function() {
+            connectWebSocket();
+        };
+    </script>
+</body>
 </html>
