@@ -91,15 +91,12 @@
     <div class="container">
         <h1>🖨️ SADA Bridge Service</h1>
         
-        <div class="status">
-            <h3>✅ Service Running</h3>
-            <p>WebSocket server is active and ready to receive print jobs</p>
-        </div>
         
         <div class="info">
             <h3>📡 Connection Info</h3>
             <div class="endpoint">WebSocket: ws://localhost:8912</div>
             <div class="endpoint">Status: Connected</div>
+            <div class="endpoint">LAN IP: <span id="lanIp">Loading...</span></div>
         </div>
         
         <div class="info">
@@ -107,6 +104,7 @@
             <div class="endpoint">{"type": "print", "base64String": "...", "printerName": "..."}</div>
             <div class="endpoint">{"type": "get_printers"}</div>
             <div class="endpoint">{"type": "ping"}</div>
+            <div class="endpoint">{"type": "get_lan_ip"}</div>
         </div>
         
         <div class="test-section">
@@ -114,6 +112,7 @@
             <button onclick="testConnection()">Test Connection</button>
             <button onclick="getPrinters()">Get Printers</button>
             <button onclick="testPrint()">Test Print</button>
+            <button onclick="getLANIPAddress()">Get LAN IP</button>
             <button onclick="clearLog()">Clear Log</button>
         </div>
         
@@ -138,11 +137,15 @@
                 
                 ws.onopen = function() {
                     log('Connected to WebSocket server');
+                    getLANIPAddress();
                 };
                 
                 ws.onmessage = function(event) {
                     const data = JSON.parse(event.data);
                     log(`Received: ${JSON.stringify(data, null, 2)}`);
+                    if (data.type === 'lan_ip_response') {
+                        document.getElementById('lanIp').textContent = data.ipAddress;
+                    }
                 };
                 
                 ws.onclose = function() {
@@ -170,6 +173,15 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({type: 'get_printers'}));
                 log('Requested printer list');
+            } else {
+                log('WebSocket not connected');
+            }
+        }
+        
+        function getLANIPAddress() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'get_lan_ip'}));
+                log('Requested LAN IP');
             } else {
                 log('WebSocket not connected');
             }
