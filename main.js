@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu } = require("electron");
 const WebSocket = require("ws");
+const https = require("https");
 const path = require("path");
 const fs = require("fs");
 const { exec } = require("child_process");
@@ -434,10 +435,9 @@ async function tryWindowsPrintCommand(filePath, printerName) {
 
 async function tryPowerShellPrint(filePath, printerName) {
   try {
-    // const command = `powershell -Command "& {Start-Process -FilePath '${filePath}' -Verb Print -WindowStyle Hidden -Wait -ErrorAction Stop}"`;
     const command = `powershell -Command "Start-Process -FilePath '${acrobatPath}' -ArgumentList '/t \\"${filePath}\\" \\"${printerName}\\"' -WindowStyle Hidden -Wait"`
 
-    const { stdout, stderr } = await execAsync(command)
+    const { stdout } = await execAsync(command)
 
     return {
       success: true,
@@ -520,12 +520,123 @@ async function getLANIPAddress() {
   return ipAddress;
 }
 
+// Generate self-signed SSL certificates using Node.js crypto
+function generateSSLCertificates() {
+  const { execSync } = require('child_process');
+  
+  try {
+    console.log('Attempting to generate SSL certificates...');
+    
+    // Try to generate certificates using OpenSSL if available
+    const certPath = path.join(tempDir, 'server.crt');
+    const keyPath = path.join(tempDir, 'server.key');
+    
+    if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+      console.log('Generating new SSL certificates...');
+      // Generate self-signed certificate using OpenSSL
+      const opensslCmd = `openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 365 -nodes -subj "/C=US/ST=State/L=City/O=SADA Bridge/CN=foodtimesoman.com"`;
+      execSync(opensslCmd, { stdio: 'pipe' });
+      console.log('SSL certificates generated successfully');
+    } else {
+      console.log('Using existing SSL certificates');
+    }
+    
+    // Verify the certificates exist and are readable
+    if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+      throw new Error('Certificate files were not created');
+    }
+    
+    const cert = fs.readFileSync(certPath);
+    const key = fs.readFileSync(keyPath);
+    
+    if (!cert || !key) {
+      throw new Error('Certificate files are empty or unreadable');
+    }
+    
+    console.log('SSL certificates loaded successfully');
+    return { cert, key };
+  } catch (error) {
+    console.warn('Could not generate SSL certificates:', error.message);
+    console.log('This is normal if OpenSSL is not installed. Falling back to HTTP...');
+    return null;
+  }
+}
+
 // Create WebSocket server
 function createWebSocketServer() {
-  const wss = new WebSocket.Server({ port: 8912 });
+  try {
+    const sslOptions = generateSSLCertificates();
+    
+    if (sslOptions) {
+      console.log("SSL certificates generated successfully, starting HTTPS server...");
+      
+      // Create HTTPS server
+      const httpsServer = https.createServer(sslOptions, (req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('SADA Bridge HTTPS Server');
+      });
 
-  wss.on("connection", (ws) => {
-    console.log("Client connected");
+      // Create WebSocket server with HTTPS (don't specify port here)
+      const wss = new WebSocket.Server({ 
+        server: httpsServer
+      });
+
+      // Start HTTPS server
+      httpsServer.listen(8912, '0.0.0.0', () => {
+        console.log("HTTPS WebSocket server running on wss://0.0.0.0:8912");
+        console.log("Clients can connect via wss://[your-ip]:8912");
+      });
+
+      httpsServer.on('error', (error) => {
+        console.error('HTTPS server error:', error);
+        console.log('Falling back to HTTP WebSocket server...');
+        startHTTPWebSocketServer();
+      });
+
+      setupWebSocketHandlers(wss);
+      
+      wss.on('error', (error) => {
+        console.error('WebSocket server error:', error);
+      });
+    } else {
+      console.warn("SSL certificate generation failed, falling back to HTTP WebSocket server");
+      startHTTPWebSocketServer();
+    }
+  } catch (error) {
+    console.error('Error creating WebSocket server:', error);
+    console.log('Falling back to HTTP WebSocket server...');
+    startHTTPWebSocketServer();
+  }
+}
+
+// Start HTTP WebSocket server as fallback
+function startHTTPWebSocketServer() {
+  try {
+    const wss = new WebSocket.Server({ 
+      port: 8912,
+      host: '0.0.0.0'
+    });
+    console.log("HTTP WebSocket server running on ws://0.0.0.0:8912");
+    console.log("Clients can connect via ws://[your-ip]:8912");
+    setupWebSocketHandlers(wss);
+    
+    wss.on('error', (error) => {
+      console.error('HTTP WebSocket server error:', error);
+    });
+  } catch (error) {
+    console.error('Failed to start HTTP WebSocket server:', error);
+  }
+}
+
+// Setup WebSocket event handlers
+function setupWebSocketHandlers(wss) {
+  wss.on("connection", (ws, req) => {
+    const clientIP = req.connection.remoteAddress || req.socket.remoteAddress || 'unknown';
+    console.log(`Client connected from ${clientIP}`);
+
+    ws.on("error", (error) => {
+      console.error("WebSocket error:", error);
+    });
 
     ws.on("message", async (message) => {
       try {
@@ -535,15 +646,16 @@ function createWebSocketServer() {
         // Handle different message types
         let printResult, printers;
         switch (data.type) {
-          case "print":
+          case "print": {
             printResult = await handlePrintJob(data);
             ws.send(JSON.stringify({
               type: "print_response",
               ...printResult
             }));
             break;
+          }
 
-          case "get_printers":
+          case "get_printers": {
             printers = await getAvailablePrinters();
             ws.send(JSON.stringify({
               type: "printers_response",
@@ -551,16 +663,18 @@ function createWebSocketServer() {
               printers: printers
             }));
             break;
+          }
 
-          case "ping":
+          case "ping": {
             ws.send(JSON.stringify({
               type: "pong",
               message: "Service is running",
               timestamp: new Date().toISOString()
             }));
             break;
+          }
 
-          case "get_lan_ip":
+          case "get_lan_ip": {
             const ipAddress = await getLANIPAddress();
             ws.send(JSON.stringify({
               type: "lan_ip_response",
@@ -568,6 +682,7 @@ function createWebSocketServer() {
               ipAddress: ipAddress
             }));
             break;
+          }
 
           default:
             ws.send(JSON.stringify({
@@ -595,8 +710,6 @@ function createWebSocketServer() {
       timestamp: new Date().toISOString()
     }));
   });
-
-  console.log("WebSocket server running on ws://localhost:8912");
 }
 
 // Create Electron window
@@ -644,7 +757,7 @@ function createTray() {
         },
     ]);
     
-    tray.setToolTip("SADA Bridge Service - Running on port 8912");
+    tray.setToolTip("SADA Bridge Service - Running on port 8912 (WSS/HTTPS)");
     tray.setContextMenu(contextMenu);
 }
 
