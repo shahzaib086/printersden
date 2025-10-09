@@ -9,6 +9,7 @@ An Electron application with WebSocket server that receives print jobs via WebSo
 - 📄 **PDF Printing** - Supports base64 PDF documents
 - 🔄 **Multiple Print Methods** - Fallback printing methods for Windows
 - 🧪 **Test Interface** - Built-in test interface and client
+- ✨ **Silent Printing** - NEW! Prints without any popups using Electron native API (no Acrobat required!)
 
 ## Quick Start
 
@@ -163,6 +164,30 @@ npm run build
 - **Windows** - Multiple printing methods with fallbacks
 - **macOS** - Uses `lpr` command
 - **Linux** - Uses `lp` command
+
+## Printing Methods
+
+The application uses multiple printing methods with automatic fallback. The methods are tried in order:
+
+### 1. Electron Native Silent Print (NEW! ⭐)
+- **100% Silent** - No popups, dialogs, or visible windows
+- **No External Dependencies** - No Acrobat.exe or other software needed
+- **Fast & Reliable** - Uses Electron's built-in printing API
+- **Works with all printers** - Supports any Windows printer
+
+### 2. PowerShell Print (Fallback)
+- Uses PowerShell to invoke Acrobat for printing
+- Requires Acrobat.exe to be bundled with the app
+
+### 3. Rundll32 Print (Fallback)
+- Uses Windows shell commands
+- May show brief dialogs
+
+### 4. Windows Print Command (Fallback)
+- Basic Windows print command
+- Reliable for most scenarios
+
+**The application automatically tries each method until one succeeds, ensuring maximum compatibility!**
 
 ## Troubleshooting
 

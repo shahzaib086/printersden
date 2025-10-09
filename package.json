@@ -1,6 +1,6 @@
 {
   "name": "sada-bridge-electron",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "description": "Bridge service between POS and printers with WebSocket server for printing base64 documents.",
   "main": "main.js",
   "scripts": {
@@ -32,7 +32,6 @@
       "index.html",
       "test-client.js",
       "package.json",
-      "Acrobat.exe",
       "assets/**/*",
       "node_modules/ws/**/*",
       "!node_modules/ws/node_modules/**/*",
@@ -45,13 +44,7 @@
     "asar": false,
     "win": {
       "target": "nsis",
-      "icon": "assets/printer.png",
-      "extraResources": [
-        {
-          "from": "Acrobat.exe",
-          "to": "Acrobat.exe"
-        }
-      ]
+      "icon": "assets/printer.png"
     },
     "mac": {
       "target": "dmg",
