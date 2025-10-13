@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const { exec } = require("child_process");
 const { promisify } = require("util");
+const { print } = require("pdf-to-printer"); // print library for printing pdfs
 const acrobatPath = "Acrobat.exe"
 
 const execAsync = promisify(exec);
@@ -74,43 +75,66 @@ async function handlePrintJob(data) {
 // Simple and reliable print function
 async function printFile(filePath, printerName) {
   try {
-    if (process.platform === "win32") {
-      return await printFileWindowsSimple(filePath, printerName);
-    } else if (process.platform === "darwin") {
-      const command = `lpr -P "${printerName}" "${filePath}"`;
-      const { stdout, stderr } = await execAsync(command);
-      
-      if (stderr && !stderr.includes("Warning")) {
-        throw new Error(`Print command failed: ${stderr}`);
-      }
-      
-      return {
-        success: true,
-        printer: printerName,
-        file: filePath,
-        method: "macOS lpr",
-        output: stdout
-      };
-    } else {
-      const command = `lp -d "${printerName}" "${filePath}"`;
-      const { stdout, stderr } = await execAsync(command);
-      
-      if (stderr && !stderr.includes("Warning")) {
-        throw new Error(`Print command failed: ${stderr}`);
-      }
-      
-      return {
-        success: true,
-        printer: printerName,
-        file: filePath,
-        method: "Linux lp",
-        output: stdout
-      };
-    }
+    await print(filePath, {
+      printer: printerName,
+      // optional flags:
+      silent: true,        // no dialog
+      scale: "fit",        // ensures proper scaling
+      monochrome: false,   // color print
+      paperSize: "A4"      // or auto-detect
+    });
+
+    return {
+      success: true,
+      printer: printerName,
+      file: filePath,
+      method: "pdf-to-printer",
+      message: "Printed successfully via pdf-to-printer"
+    };
   } catch (error) {
-    throw new Error(`Print execution failed: ${error.message}`);
+    throw new Error(`pdf-to-printer failed: ${error.message}`);
   }
 }
+
+// async function printFile(filePath, printerName) {
+//   try {
+//     if (process.platform === "win32") {
+//       return await printFileWindowsSimple(filePath, printerName);
+//     } else if (process.platform === "darwin") {
+//       const command = `lpr -P "${printerName}" "${filePath}"`;
+//       const { stdout, stderr } = await execAsync(command);
+      
+//       if (stderr && !stderr.includes("Warning")) {
+//         throw new Error(`Print command failed: ${stderr}`);
+//       }
+      
+//       return {
+//         success: true,
+//         printer: printerName,
+//         file: filePath,
+//         method: "macOS lpr",
+//         output: stdout
+//       };
+//     } else {
+//       const command = `lp -d "${printerName}" "${filePath}"`;
+//       const { stdout, stderr } = await execAsync(command);
+      
+//       if (stderr && !stderr.includes("Warning")) {
+//         throw new Error(`Print command failed: ${stderr}`);
+//       }
+      
+//       return {
+//         success: true,
+//         printer: printerName,
+//         file: filePath,
+//         method: "Linux lp",
+//         output: stdout
+//       };
+//     }
+//   } catch (error) {
+//     throw new Error(`Print execution failed: ${error.message}`);
+//   }
+// }
 
 // Simple Windows printing - try the most reliable methods first
 async function printFileWindowsSimple(filePath, printerName) {
