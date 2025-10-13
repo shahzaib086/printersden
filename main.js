@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const { exec } = require("child_process");
 const { promisify } = require("util");
+const { print } = require("pdf-to-printer"); // print library for printing pdfs
 const acrobatPath = "Acrobat.exe"
 
 const execAsync = promisify(exec);
@@ -74,43 +75,66 @@ async function handlePrintJob(data) {
 // Simple and reliable print function
 async function printFile(filePath, printerName) {
   try {
-    if (process.platform === "win32") {
-      return await printFileWindowsSimple(filePath, printerName);
-    } else if (process.platform === "darwin") {
-      const command = `lpr -P "${printerName}" "${filePath}"`;
-      const { stdout, stderr } = await execAsync(command);
-      
-      if (stderr && !stderr.includes("Warning")) {
-        throw new Error(`Print command failed: ${stderr}`);
-      }
-      
-      return {
-        success: true,
-        printer: printerName,
-        file: filePath,
-        method: "macOS lpr",
-        output: stdout
-      };
-    } else {
-      const command = `lp -d "${printerName}" "${filePath}"`;
-      const { stdout, stderr } = await execAsync(command);
-      
-      if (stderr && !stderr.includes("Warning")) {
-        throw new Error(`Print command failed: ${stderr}`);
-      }
-      
-      return {
-        success: true,
-        printer: printerName,
-        file: filePath,
-        method: "Linux lp",
-        output: stdout
-      };
-    }
+    await print(filePath, {
+      printer: printerName,
+      // optional flags:
+      silent: true,        // no dialog
+      scale: "fit",        // ensures proper scaling
+      monochrome: false,   // color print
+      paperSize: "A4"      // or auto-detect
+    });
+
+    return {
+      success: true,
+      printer: printerName,
+      file: filePath,
+      method: "pdf-to-printer",
+      message: "Printed successfully via pdf-to-printer"
+    };
   } catch (error) {
-    throw new Error(`Print execution failed: ${error.message}`);
+    throw new Error(`pdf-to-printer failed: ${error.message}`);
   }
 }
+
+// async function printFile(filePath, printerName) {
+//   try {
+//     if (process.platform === "win32") {
+//       return await printFileWindowsSimple(filePath, printerName);
+//     } else if (process.platform === "darwin") {
+//       const command = `lpr -P "${printerName}" "${filePath}"`;
+//       const { stdout, stderr } = await execAsync(command);
+      
+//       if (stderr && !stderr.includes("Warning")) {
+//         throw new Error(`Print command failed: ${stderr}`);
+//       }
+      
+//       return {
+//         success: true,
+//         printer: printerName,
+//         file: filePath,
+//         method: "macOS lpr",
+//         output: stdout
+//       };
+//     } else {
+//       const command = `lp -d "${printerName}" "${filePath}"`;
+//       const { stdout, stderr } = await execAsync(command);
+      
+//       if (stderr && !stderr.includes("Warning")) {
+//         throw new Error(`Print command failed: ${stderr}`);
+//       }
+      
+//       return {
+//         success: true,
+//         printer: printerName,
+//         file: filePath,
+//         method: "Linux lp",
+//         output: stdout
+//       };
+//     }
+//   } catch (error) {
+//     throw new Error(`Print execution failed: ${error.message}`);
+//   }
+// }
 
 // Simple Windows printing - try the most reliable methods first
 async function printFileWindowsSimple(filePath, printerName) {
@@ -287,12 +311,27 @@ async function printFileWithElectron(filePath, printerName) {
         resolve({ success: false, error: error.message });
       });
 
+      // Track if PDF content is actually loaded
+      let pdfContentReady = false;
+      let printTimeout = null;
+
+      // Listen for when the PDF is actually rendered and ready
+      printWindow.webContents.on('did-finish-load', () => {
+        console.log('PDF content fully loaded and ready');
+        pdfContentReady = true;
+      });
+
       // Load the PDF file
       printWindow.loadFile(filePath).then(() => {
-        console.log('PDF loaded successfully in hidden window');
+        console.log('PDF file loaded in hidden window, waiting for render...');
         
-        // Wait a moment for PDF to fully render
-        setTimeout(() => {
+        // Wait longer for PDF to fully render (especially important for complex PDFs)
+        // Increased from 1500ms to 3500ms to ensure proper rendering
+        printTimeout = setTimeout(() => {
+          if (!pdfContentReady) {
+            console.warn('PDF may not be fully rendered yet, but proceeding with print...');
+          }
+          
           // Configure silent printing options
           const printOptions = {
             silent: true, // This is the key - NO DIALOG, NO POPUP!
@@ -309,6 +348,8 @@ async function printFileWithElectron(filePath, printerName) {
             copies: 1
           };
 
+          console.log('Sending PDF to printer...');
+          
           // Print the PDF silently
           printWindow.webContents.print(printOptions, (success, failureReason) => {
             console.log(`Print result - Success: ${success}, Reason: ${failureReason}`);
@@ -334,10 +375,11 @@ async function printFileWithElectron(filePath, printerName) {
               });
             }
           });
-        }, 1500); // Give PDF time to render
+        }, 3500); // Increased timeout to 3.5 seconds for better PDF rendering
         
       }).catch((error) => {
         console.error('Error loading PDF:', error);
+        if (printTimeout) clearTimeout(printTimeout);
         printWindow.close();
         resolve({ 
           success: false, 
